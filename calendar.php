@@ -1,90 +1,99 @@
-<header class="page-header">
-  <div class="pull-right form-inline">
-    <div class="btn-group">
-      <button class="btn btn-primary" data-calendar-nav="prev">previous</button>
-      <button class="btn btn-default" data-calendar-nav="today">today</button>
-      <button class="btn btn-primary" data-calendar-nav="next">next</button>
-    </div>
+<?php
+ class calendar{
+     protected $db_query;
+     protected $db_result;
+     protected $db_row;
 
-    <div class="btn-group">
-      <button class="btn btn-warning" data-calendar-view="year">year</button>
-      <button class="btn btn-warning active" data-calendar-view="month">Month</button>
-      <button class="btn btn-warning" data-calendar-view="week">week</button>
-      <button class="btn btn-warning" data-calendar-view="day">day</button>
-    </div>
-  </div>
-  <h3></h3>
-</header>
+     public function listToDo($connection){
+         $this -> connection = $connection;
+         $this -> db_query = "SELECT * FROM events";
 
-<?php if (isset($_GET["new"]) AND ($_GET["new"]=="ok")): ?>
-<div class="alert alert-success alert-dismissible fade in" role="alert">
-  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-    <span aria-hidden="true">&times;</span>
-  </button>
+         try {
+                $db_result = $connection -> prepare($this -> db_query);
+                $db_result -> execute();
 
-  <p><span class="glyphicon glyphicon-info-sign"></span> The event has been created successfully.</p>
-</div>
-<?php endif; ?>
+                $db_array = array();
+                $i = 0;
 
-<?php if (isset($_GET["remove"]) && ($_GET["remove"]=="ok")): ?>
-<div class="alert alert-success alert-dismissible fade in" role="alert">
-  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-    <span aria-hidden="true">&times;</span>
-  </button>
+                while($db_row = $db_result -> fetch(PDO::FETCH_BOTH)){
+                    $db_array[$i] = $db_row;
+                    $i++;
+                 } 
 
-  <p><span class="glyphicon glyphicon-info-sign"></span> The event had been successfully deleted.</p>
-</div>
-<?php endif; ?>
+                echo json_decode(array("success" => 1,"result" => $db_array));
 
-<div class="row">
-  <div class="col-xm-12 col-md-8">
-    <div id="calendar"></div>
-  </div>
+                $db_result -> CloseCursor();
+         }
+         catch(Exception $e){
+             die('Error' . $e -> GetMessage());
+             echo "<div class'alert alert-danger' role='alert'>". $e -> getLine() . "</div>";
+         }
+     }
 
-  <div class="col-xm-12 col-md-4">
-    <?php include_once "views/calendar/new.php"; ?>
-  </div>
-</div>
+     public function new($connection){
+         $this -> connection = $connection;
 
-<div class="modal fade" id="events-modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-        <h3 class="modal-title">events</h3>
-      </div>
-      <div class="modal-body" style="height: 400px">
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
+         $this -> db_query = "INSERT INTO events (title, body, url, class, start, end, start_normal, end_normal) VALUES (:title, :body, :url, :class, :start, :end, :start_normal, :end_normal)";
 
+         $start = strtotime(substr($_POST["start"], 6, 4) . "-" . substr($_POST["start"], 3, 2) . "-" . substr($_POST["start"], 0, 2) . " "  . substr($_POST["start"], 10, 6)) * 1000;
 
-<script type="text/javascript" src="components/underscore/underscore-min.js"></script>
-<script type="text/javascript" src="components/jstimezonedetect/jstz.min.js"></script>
-<script type="text/javascript" src="components/bootstrap-calendar/js/language/en-US.js"></script>
-<script type="text/javascript" src="components/bootstrap-calendar/js/calendar.js"></script>
-<script type="text/javascript" src="components/bootstrap-calendar/js/app.js"></script>
-<script type="text/javascript" src="components/moment/moment.min.js"></script>
-<script type="text/javascript" src="components/moment/locale/en-gb.js"></script>
-<script type="text/javascript" src="components/bootstrap-datetimepicker/js/bootstrap-datetimepicker.min.js"></script>  
+         $end = strtotime(substr($_POST["end"], 6, 4)."-" . substr($_POST["end"], 3, 2) . "-" . substr($_POST["end"], 0, 2) . " " . substr($_POST["end"], 10, 6)) * 1000;
 
-<script>
-  $('#datetimepicker1').datetimepicker({
-    format: 'DD/MM/YYYY HH:mm',
-    ignoreReadonly: true,
-    minDate: moment(),
-    showClear: true
-  });
+         $link = __LOCALHOST__ . "/calendarDetails.php";
 
-  $('#datetimepicker2').datetimepicker({
-    format: 'DD/MM/YYYY HH:mm',
-    ignoreReadonly: true,
-    minDate: moment(),
-    showClear: true
-  });  
-</script>
+         try {
+             $db_result = $connection -> prepare($this -> db_query);
 
+             $db_result -> bindValue(":title", $_POST['title']);
+             $db_result -> bindValue(":body", $_POST["body"]);
+             $db_result -> bindValue(":url", $link);
+             $db_result -> bindValue(":class", $_POST["class"]);
+             $db_result -> bindValue(":start", $inicio);
+             $db_result -> bindValue(":end", $final);
+             $db_result -> bindValue(":start_normal", $_POST["start"]);
+             $db_result -> bindValue(":end_normal", $_POST["end"]);
+
+             $db_result -> execute();
+
+             $this -> db_query = "SELECT MAX(id) AS id FROM events";
+             $db_result = $connection -> prepare($this -> db_query);
+             $db_result -> execute();
+
+             $db_file = $db_result -> fetch(PDO::FETCH_ASSOC);
+             $id_event = $_file['id'];
+             
+             $link = __LOCALHOST__ . "/calendarDetails.php?id=$id_event";
+
+             $this -> db_query = "UPDATE events SET url= '$link' WHERE id = '$id_event'";
+             $db_result = $connection ->prepare($this -> db_query);
+             $db_result -> execute();
+
+             $db_result -> CloseCursor();
+
+             header("location:indexForTheCalendar.php?new=done");
+         }
+         catch(Exception $e){
+             die('Error' . $e -> GetMessage());
+             echo "<div class='alert alert-danger' role='alert'>" . $e -> getLine() . "</div>";
+         }
+     }
+     
+     public function remove($connection){
+         $this -> connection = $connection;
+         $this -> db_query = "DELETE FROM events WHERE id = :id";
+
+         try{
+             $db_result = $connection -> prepare($this -> db_query);
+             $db_result -> bindValue(":id", $_Get["id"]);
+             $db_result -> execute();
+
+             $db_result -> CloseCursor();
+
+             header("location:indexForTheCalendar.php?remove=done");
+         }
+         catch(Exception $e){
+             die('Error' . $e -> GetMessage());
+             echo "<div class='alert alert-danger' role='alert'>" . $e -> getLine() . "</div>";
+         }
+     }
+ }
